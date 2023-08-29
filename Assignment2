@@ -1,0 +1,96 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public class WeatherApp {
+
+    private static final String API_KEY = "YOUR_ACTUAL_API_KEY";  // Replace with your actual OpenWeatherMap API key
+    private static final String API_URL = "https://api.openweathermap.org/data/2.5/forecast?q=London,us&appid=" + API_KEY;
+
+    public static void main(String[] args) {
+        try {
+            JSONArray weatherData = getWeatherData();
+            if (weatherData == null) {
+                return;
+            }
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+            while (true) {
+                System.out.println("1. Get Temperature\n2. Get Wind Speed\n3. Get Pressure\n0. Exit");
+                System.out.print("Enter your choice: ");
+                int choice = Integer.parseInt(reader.readLine());
+
+                if (choice == 0) {
+                    System.out.println("Exiting...");
+                    break;
+                } else if (choice >= 1 && choice <= 3) {
+                    System.out.print("Enter the date with time (yyyy-MM-dd HH:mm:ss): ");
+                    String targetDateTime = reader.readLine();
+
+                    JSONObject weatherEntry = getWeatherEntry(weatherData, targetDateTime);
+                    if (weatherEntry != null) {
+                        if (choice == 1) {
+                            double temperature = weatherEntry.getJSONObject("main").getDouble("temp");
+                            System.out.println("Temperature: " + temperature + "°C");
+                        } else if (choice == 2) {
+                            double windSpeed = weatherEntry.getJSONObject("wind").getDouble("speed");
+                            System.out.println("Wind Speed: " + windSpeed + " m/s");
+                        } else if (choice == 3) {
+                            double pressure = weatherEntry.getJSONObject("main").getDouble("pressure");
+                            System.out.println("Pressure: " + pressure + " hPa");
+                        }
+                    } else {
+                        System.out.println("Data not available for the specified date and time.");
+                    }
+                } else {
+                    System.out.println("Invalid choice. Please select a valid option.");
+                }
+            }
+
+            reader.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static JSONArray getWeatherData() throws IOException {
+        URL url = new URL(API_URL);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+        if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            StringBuilder response = new StringBuilder();
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+
+            reader.close();
+            connection.disconnect();
+
+            JSONObject jsonResponse = new JSONObject(response.toString());
+            return jsonResponse.getJSONArray("list");
+        } else {
+            System.out.println("Error fetching weather data.");
+            return null;
+        }
+    }
+
+    private static JSONObject getWeatherEntry(JSONArray weatherData, String targetDateTime) {
+        for (int i = 0; i < weatherData.length(); i++) {
+            JSONObject entry = weatherData.getJSONObject(i);
+            String dateTime = entry.getString("dt_txt");
+
+            if (dateTime.equals(targetDateTime)) {
+                return entry;
+            }
+        }
+        return null;
+    }
+}
